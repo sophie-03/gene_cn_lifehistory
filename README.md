@@ -39,3 +39,6 @@ Identification of which genes corresponded to each orthogroup was done using hou
 
 ### 3. PGLS (individual genes)
 PGLS to test for association between gene copy number and life history traits. Scripts in ```pgls_indv``` folder.
+
+### 4. Aggregate PGLS (gene sets)
+PGLS to test for association between the aggregate copy number of genes within gene sets and life history traits. Scripts in ```pgls_sets``` folder.
