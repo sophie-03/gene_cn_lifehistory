@@ -1,0 +1,998 @@
+---
+title: "Over Representation Analysis (ORA)"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+ORA can determine if a set of genes shares more or fewer genes with gene sets/pathways than we would expect by chance. Here we look at the orthogroups/genes that have been found to have copy number changes in association with phenotypes (determined by pgls and an FDR cut-off of 0.2).
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+setwd("~/OneDrive/Placement/Research/")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+#BiocManager::install("clusterProfiler")
+#BiocManager::install("org.Mm.eg.db")
+
+library(dplyr)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(DT)
+library(ggplot2)
+
+
+```
+
+## Data
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+## READ IN PGLS RESULTS
+
+maxlong_pos <- read.table("pgls_results/pgls_indv_longevity_pos.txt", header = TRUE, fill = TRUE)
+maxlong_neg <- read.table("pgls_results/pgls_indv_longevity_neg.txt", header = TRUE, fill = TRUE)
+adultweight_pos <- read.table("pgls_results/pgls_indv_bodysize_pos.txt", header = TRUE, fill = TRUE)
+adultweight_neg <- read.table("pgls_results/pgls_indv_bodysize_neg.txt", header = TRUE, fill = TRUE)
+neoplasia_pos <- read.table("pgls_results/pgls_indv_neoplasia_pos.txt", header = TRUE, fill = TRUE)
+neoplasia_neg<- read.table("pgls_results/pgls_indv_neoplasia_neg.txt", header = TRUE, fill = TRUE)
+malignancy_pos <- read.table("pgls_results/pgls_indv_malignancy_pos.txt", header = TRUE, fill = TRUE)
+malignancy_neg <- read.table("pgls_results/pgls_indv_malignancy_neg.txt", header = TRUE, fill = TRUE)
+ratio_pos <- read.table("pgls_results/pgls_indv_ratio_pos.txt", header = TRUE, fill = TRUE)
+ratio_neg <- read.table("pgls_results/pgls_indv_ratio_neg.txt", header = TRUE, fill = TRUE)
+
+#add adjusted p value
+adjusted_p_values <- p.adjust(maxlong_pos$p_value, method = "BH")
+maxlong_pos$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(maxlong_neg$p_value, method = "BH")
+maxlong_neg$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(adultweight_pos$p_value, method = "BH")
+adultweight_pos$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(adultweight_neg$p_value, method = "BH")
+adultweight_neg$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(neoplasia_pos$p_value, method = "BH")
+neoplasia_pos$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(neoplasia_neg$p_value, method = "BH")
+neoplasia_neg$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(malignancy_pos$p_value, method = "BH")
+malignancy_pos$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(malignancy_neg$p_value, method = "BH")
+malignancy_neg$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(ratio_pos$p_value, method = "BH")
+ratio_pos$adjusted_p_value <- adjusted_p_values
+
+adjusted_p_values <- p.adjust(ratio_neg$p_value, method = "BH")
+ratio_neg$adjusted_p_value <- adjusted_p_values
+
+
+# add gene names to the results
+mouse_ortho <- read.table("mouse_gene.orthogroup_data.tsv", fill = TRUE, header = TRUE)
+
+maxlong_pos <- left_join(mouse_ortho, maxlong_pos, by = c("Orthogroup" = "OG"))
+maxlong_neg <- left_join(mouse_ortho, maxlong_neg, by = c("Orthogroup" = "OG"))
+adultweight_pos <- left_join(mouse_ortho, adultweight_pos, by = c("Orthogroup" = "OG"))
+adultweight_neg <- left_join(mouse_ortho, adultweight_neg, by = c("Orthogroup" = "OG"))
+neoplasia_pos <- left_join(mouse_ortho, neoplasia_pos, by = c("Orthogroup" = "OG"))
+neoplasia_neg <- left_join(mouse_ortho, neoplasia_neg, by = c("Orthogroup" = "OG"))
+malignancy_pos <- left_join(mouse_ortho, malignancy_pos, by = c("Orthogroup" = "OG"))
+malignancy_neg <- left_join(mouse_ortho, malignancy_neg, by = c("Orthogroup" = "OG"))
+ratio_pos <- left_join(mouse_ortho, ratio_pos, by = c("Orthogroup" = "OG"))
+ratio_neg <- left_join(mouse_ortho, ratio_neg, by = c("Orthogroup" = "OG"))
+
+# add NCBI IDs to the results
+mouse_ncbi <- read.table("mouse_ncbiIDs_biomart.txt", fill = TRUE, header = TRUE, sep = "\t")
+
+maxlong_pos <- left_join(maxlong_pos, mouse_ncbi, by = c("gene" = "Gene.name"))
+maxlong_neg <- left_join(maxlong_neg, mouse_ncbi, by = c("gene" = "Gene.name"))
+adultweight_pos <- left_join(adultweight_pos, mouse_ncbi, by = c("gene" = "Gene.name"))
+adultweight_neg <- left_join(adultweight_neg, mouse_ncbi, by = c("gene" = "Gene.name"))
+neoplasia_pos <- left_join(neoplasia_pos, mouse_ncbi, by = c("gene" = "Gene.name"))
+neoplasia_neg <- left_join(neoplasia_neg, mouse_ncbi, by = c("gene" = "Gene.name"))
+malignancy_pos <- left_join(malignancy_pos, mouse_ncbi, by = c("gene" = "Gene.name"))
+malignancy_neg <- left_join(malignancy_neg, mouse_ncbi, by = c("gene" = "Gene.name"))
+ratio_pos <- left_join(ratio_pos, mouse_ncbi, by = c("gene" = "Gene.name"))
+ratio_neg <- left_join(ratio_neg, mouse_ncbi, by = c("gene" = "Gene.name"))
+
+# remove orthogroups not found in mouse and orthogroups not in this dataset (pos/neg)
+maxlong_pos <- maxlong_pos[complete.cases(maxlong_pos$gene) & maxlong_pos$gene != "" & !is.na(maxlong_pos$coeff) & maxlong_pos$coeff != "", ]
+maxlong_neg <- maxlong_neg[complete.cases(maxlong_neg$gene) & maxlong_neg$gene != "" & !is.na(maxlong_neg$coeff) & maxlong_neg$coeff != "", ]
+adultweight_pos <- adultweight_pos[complete.cases(adultweight_pos$gene) & adultweight_pos$gene != "" & !is.na(adultweight_pos$coef) & adultweight_pos$coef != "", ]
+adultweight_neg <- adultweight_neg[complete.cases(adultweight_neg$gene) & adultweight_neg$gene != "" & !is.na(adultweight_neg$coef) & adultweight_neg$coef != "", ]
+neoplasia_pos <- neoplasia_pos[complete.cases(neoplasia_pos$gene) & neoplasia_pos$gene != "" & !is.na(neoplasia_pos$coeff) & neoplasia_pos$coeff != "", ]
+neoplasia_neg <- neoplasia_neg[complete.cases(neoplasia_neg$gene) & neoplasia_neg$gene != "" & !is.na(neoplasia_neg$coeff) & neoplasia_neg$coeff != "", ]
+malignancy_pos <- malignancy_pos[complete.cases(malignancy_pos$gene) & malignancy_pos$gene != "" & !is.na(malignancy_pos$coeff) & malignancy_pos$coeff != "", ]
+malignancy_neg <- malignancy_neg[complete.cases(malignancy_neg$gene) & malignancy_neg$gene != "" & !is.na(malignancy_neg$coeff) & malignancy_neg$coeff != "", ]
+ratio_pos <- ratio_pos[complete.cases(ratio_pos$gene) & ratio_pos$gene != "" & !is.na(ratio_pos$coeff) & ratio_pos$coeff != "", ]
+ratio_neg <- ratio_neg[complete.cases(ratio_neg$gene) & ratio_neg$gene != "" & !is.na(ratio_neg$coeff) & ratio_neg$coeff != "", ]
+
+#subset for results with p value < 0.05, by using adjusted p.values (Benjamini-Hochberg method)
+maxlong_pos.2 <- maxlong_pos[maxlong_pos$p_value < 0.05, ]
+maxlong_neg.2 <- maxlong_neg[maxlong_neg$p_value < 0.05, ]
+adultweight_pos.2 <- adultweight_pos[adultweight_pos$p_value < 0.05, ]
+adultweight_neg.2 <- adultweight_neg[adultweight_neg$p_value < 0.05, ]
+neoplasia_pos.2 <- neoplasia_pos[neoplasia_pos$p_value < 0.05, ]
+neoplasia_neg.2 <- neoplasia_neg[neoplasia_neg$p_value < 0.05, ]
+malignancy_pos.2 <- malignancy_pos[malignancy_pos$p_value < 0.05, ]
+malignancy_neg.2 <- malignancy_neg[malignancy_neg$p_value < 0.05, ]
+ratio_pos.2 <- ratio_pos[ratio_pos$p_value < 0.05, ]
+ratio_neg.2 <- ratio_neg[ratio_neg$p_value < 0.05, ]
+
+```
+
+#### Interpreting ORA results:
+
+The `GeneRatio` column in the enrichment result represents the ratio of the number of genes in your input list that are associated with a particular gene set or term to the total number of genes annotated to that gene set or term.
+
+Interpreting `GeneRatio`:
+
+-   A `GeneRatio` close to 1 indicates that a high proportion of genes from your input list are associated with the gene set or term, suggesting a strong association.
+
+-   A `GeneRatio` significantly smaller than 1 may indicate that the gene set is not well-represented in your input list.
+
+## Maximum longevity (covariate: body size)
+
+### Positive correlations
+
+None of the ORA results for max longevity (positive correlations) have a gene count \> 1.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - positive correlations
+
+#Gene ontology - biological processes
+maxlong_pos_gobp <- enrichGO(
+  gene          = maxlong_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(maxlong_pos_gobp)
+gobp$group <- "GO: Biological process"
+nrow(maxlong_pos_gobp)
+
+#gene ontology - molecular function
+maxlong_pos_gomf <- enrichGO(
+  gene          = maxlong_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(maxlong_pos_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(maxlong_pos_gomf)
+
+#gene ontology - cellular component
+maxlong_pos_gocc <- enrichGO(
+  gene          = maxlong_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(maxlong_pos_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(maxlong_pos_gocc)
+
+#kegg 
+maxlong_pos_kegg <- enrichKEGG(
+     gene          = maxlong_pos.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(maxlong_pos_kegg)
+kegg$group <- "KEGG"
+nrow(maxlong_pos_kegg)
+
+max_p <- rbind(gomf, gobp, gocc)
+#write results for supp data
+write.table(max_p, "~/Documents/PhD/Placement/Supp_data/ORA/longevity_pos.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(max_p, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Maximum longevity (positive correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+### Negative Correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - negative correlations
+
+#Gene ontology - biological processes
+maxlong_neg_gobp <- enrichGO(
+  gene          = maxlong_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(maxlong_neg_gobp)
+gobp$group <- "GO: Biological process"
+nrow(maxlong_neg_gobp)
+
+#gene ontology - molecular function
+maxlong_neg_gomf <- enrichGO(
+  gene          = maxlong_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(maxlong_neg_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(maxlong_neg_gomf)
+
+#gene ontology - cellular component
+maxlong_neg_gocc <- enrichGO(
+  gene          = maxlong_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(maxlong_neg_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(maxlong_neg_gocc)
+
+#kegg 
+maxlong_neg_kegg <- enrichKEGG(
+     gene          = maxlong_neg.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(maxlong_neg_kegg)
+kegg$group <- "KEGG"
+nrow(maxlong_neg_kegg)
+
+max_n <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(max_n, "~/Documents/PhD/Placement/Supp_data/ORA/longevity_neg.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(max_n, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Maximum longevity (negative correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+```{r}
+
+# combine positive and negative results
+max_p$correlation <- "positive"
+max_n$correlation <- "negative"
+
+max <- rbind(max_n, max_p)
+```
+
+## Adult weight (log transformed w/ covariate: max longevity)
+
+### Positive correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - positive correlations
+
+#Gene ontology - biological processes
+adultweight_pos_gobp <- enrichGO(
+  gene          = adultweight_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(adultweight_pos_gobp)
+gobp$group <- "GO: Biological process"
+nrow(adultweight_pos_gobp)
+
+#gene ontology - molecular function
+adultweight_pos_gomf <- enrichGO(
+  gene          = adultweight_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(adultweight_pos_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(adultweight_pos_gomf)
+
+#gene ontology - cellular component
+adultweight_pos_gocc <- enrichGO(
+  gene          = adultweight_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(adultweight_pos_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(adultweight_pos_gocc)
+
+#kegg 
+adultweight_pos_kegg <- enrichKEGG(
+     gene          = adultweight_pos.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(adultweight_pos_kegg)
+kegg$group <- "KEGG"
+nrow(adultweight_pos_kegg)
+
+size_p <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(size_p, "~/Documents/PhD/Placement/Supp_data/ORA/size_pos.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(size_p, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Adult body weight (positive correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+### Negative correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - negative correlations
+
+#Gene ontology - biological processes
+adultweight_neg_gobp <- enrichGO(
+  gene          = adultweight_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(adultweight_neg_gobp)
+gobp$group <- "GO: Biological process"
+nrow(maxlong_neg_gobp)
+
+#gene ontology - molecular function
+maxlong_neg_gomf <- enrichGO(
+  gene          = maxlong_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(maxlong_neg_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(maxlong_neg_gomf)
+
+#gene ontology - cellular component
+maxlong_neg_gocc <- enrichGO(
+  gene          = maxlong_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(maxlong_neg_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(maxlong_neg_gocc)
+
+#kegg 
+maxlong_neg_kegg <- enrichKEGG(
+     gene          = maxlong_neg.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(maxlong_neg_kegg)
+#kegg$group <- "KEGG"
+nrow(maxlong_neg_kegg)
+
+size_n <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(size_n, "~/Documents/PhD/Placement/Supp_data/ORA/size_neg.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(size_n, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Adult body weight (negative correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+```{r}
+
+# combine positive and negative results
+size_p$correlation <- "positive"
+size_n$correlation <- "negative"
+
+size <- rbind(size_n, size_p)
+```
+
+## Neoplasia prevalence
+
+### Positive correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - positive correlations
+
+#Gene ontology - biological processes
+neoplasia_pos_gobp <- enrichGO(
+  gene          = neoplasia_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(neoplasia_pos_gobp)
+gobp$group <- "GO: Biological process"
+nrow(neoplasia_pos_gobp)
+
+#gene ontology - molecular function
+neoplasia_pos_gomf <- enrichGO(
+  gene          = neoplasia_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(neoplasia_pos_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(neoplasia_pos_gomf)
+
+#gene ontology - cellular component
+neoplasia_pos_gocc <- enrichGO(
+  gene          = neoplasia_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(neoplasia_pos_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(neoplasia_pos_gocc)
+
+#kegg 
+neoplasia_pos_kegg <- enrichKEGG(
+     gene          = neoplasia_pos.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(neoplasia_pos_kegg)
+kegg$group <- "KEGG"
+nrow(neoplasia_pos_kegg)
+
+neo_p <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(neo_p, "~/Documents/PhD/Placement/Supp_data/ORA/neo_pos.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(neo_p, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Neoplasia prevalence (positive correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+### Negative correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - negative correlations
+
+#Gene ontology - biological processes
+neoplasia_neg_gobp <- enrichGO(
+  gene          = neoplasia_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(neoplasia_neg_gobp)
+gobp$group <- "GO: Biological process"
+nrow(neoplasia_neg_gobp)
+
+#gene ontology - molecular function
+neoplasia_neg_gomf <- enrichGO(
+  gene          = neoplasia_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(neoplasia_neg_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(neoplasia_neg_gomf)
+
+#gene ontology - cellular component
+neoplasia_neg_gocc <- enrichGO(
+  gene          = neoplasia_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(neoplasia_neg_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(neoplasia_neg_gocc)
+
+#kegg 
+neoplasia_neg_kegg <- enrichKEGG(
+     gene          = neoplasia_neg.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(neoplasia_neg_kegg)
+kegg$group <- "KEGG"
+nrow(neoplasia_neg_kegg)
+
+neo_n <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(neo_n, "~/Documents/PhD/Placement/Supp_data/ORA/neo_neg.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+## make the Generatio column an integer
+# Split the fractions into numerator and denominator
+fraction_parts <- strsplit(neo_n$GeneRatio, "/")
+# Convert numerator and denominator to numeric
+numerator <- as.numeric(sapply(fraction_parts, "[[", 1))
+denominator <- as.numeric(sapply(fraction_parts, "[[", 2))
+# Convert fractions to decimals
+neo_n$GeneRatio <- numerator / denominator
+
+p <- ggplot(neo_n, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Ontology term", color = "adjus", size = "Count", title = "ORA: Neoplasia prevalence (negative correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+```{r}
+
+# combine positive and negative results
+neo_p$correlation <- "positive"
+neo_n$correlation <- "negative"
+
+neo <- rbind(neo_n, neo_p)
+```
+
+## Malignancy prevalence
+
+### Positive correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - positive correlations
+
+#Gene ontology - biological processes
+malignancy_pos_gobp <- enrichGO(
+  gene          = malignancy_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(malignancy_pos_gobp)
+gobp$group <- "GO: Biological process"
+nrow(malignancy_pos_gobp)
+
+#gene ontology - molecular function
+malignancy_pos_gomf <- enrichGO(
+  gene          = malignancy_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(malignancy_pos_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(malignancy_pos_gomf)
+
+#gene ontology - cellular component
+malignancy_pos_gocc <- enrichGO(
+  gene          = malignancy_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(malignancy_pos_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(malignancy_pos_gocc)
+
+#kegg 
+malignancy_pos_kegg <- enrichKEGG(
+     gene          = malignancy_pos.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(malignancy_pos_kegg)
+kegg$group <- "KEGG"
+nrow(malignancy_pos_kegg)
+
+mal_p <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(mal_p, "~/Documents/PhD/Placement/Supp_data/ORA/mal_pos.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(mal_p, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Malignancy prevalence (positive correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+### Negative correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - negative correlations
+
+#Gene ontology - biological processes
+malignancy_neg_gobp <- enrichGO(
+  gene          = malignancy_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(malignancy_neg_gobp)
+gobp$group <- "GO: Biological process"
+nrow(malignancy_neg_gobp)
+
+#gene ontology - molecular function
+malignancy_neg_gomf <- enrichGO(
+  gene          = malignancy_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(malignancy_neg_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(malignancy_neg_gomf)
+
+#gene ontology - cellular component
+malignancy_neg_gocc <- enrichGO(
+  gene          = malignancy_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(malignancy_neg_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(malignancy_neg_gocc)
+
+#kegg 
+malignancy_neg_kegg <- enrichKEGG(
+     gene          = malignancy_neg.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(malignancy_neg_kegg)
+kegg$group <- "KEGG"
+nrow(malignancy_neg_kegg)
+
+mal_n <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(mal_n, "~/Documents/PhD/Placement/Supp_data/ORA/mal_neg.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(mal_n, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Malignancy prevalence (negative correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y")
+```
+
+```{r}
+
+# combine positive and negative results
+mal_p$correlation <- "positive"
+mal_n$correlation <- "negative"
+
+mal <- rbind(mal_n, mal_p)
+```
+
+## Neoplasia:Malignancy ratio
+
+### Positive correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - positive correlations
+
+#Gene ontology - biological processes
+ratio_pos_gobp <- enrichGO(
+  gene          = ratio_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(ratio_pos_gobp)
+gobp$group <- "GO: Biological process"
+nrow(ratio_pos_gobp)
+
+#gene ontology - molecular function
+ratio_pos_gomf <- enrichGO(
+  gene          = ratio_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(ratio_pos_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(ratio_pos_gomf)
+
+#gene ontology - cellular component
+ratio_pos_gocc <- enrichGO(
+  gene          = ratio_pos.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(ratio_pos_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(ratio_pos_gocc)
+
+#kegg 
+ratio_pos_kegg <- enrichKEGG(
+     gene          = ratio_pos.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(ratio_pos_kegg)
+kegg$group <- "KEGG"
+nrow(ratio_pos_kegg)
+
+rat_p <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(rat_p, "~/Documents/PhD/Placement/Supp_data/ORA/ratio_pos.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(rat_p, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Malignancy/neoplasia ratio (positive correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y",
+             labeller = label_wrap_gen(width=10))
+```
+
+### Negative correlations
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Perform enrichment analysis - negative correlations
+
+#Gene ontology - biological processes
+ratio_neg_gobp <- enrichGO(
+  gene          = ratio_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "BP",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gobp <- as.data.frame(ratio_neg_gobp)
+gobp$group <- "GO: Biological process"
+nrow(ratio_neg_gobp)
+
+#gene ontology - molecular function
+ratio_neg_gomf <- enrichGO(
+  gene          = ratio_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "MF",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gomf <- as.data.frame(ratio_neg_gomf)
+gomf$group <- "GO: Molecular function"
+nrow(ratio_neg_gomf)
+
+#gene ontology - cellular component
+ratio_neg_gocc <- enrichGO(
+  gene          = ratio_neg.2$gene,
+  OrgDb         = org.Mm.eg.db,
+  keyType       = "SYMBOL",
+  ont           = "CC",
+  pvalueCutoff  = 0.05,
+  qvalueCutoff  = 0.05,
+  pAdjustMethod = "bonferroni"
+)
+gocc <- as.data.frame(ratio_neg_gocc)
+gocc$group <- "GO: Cellular component"
+nrow(ratio_neg_gocc)
+
+#kegg 
+ratio_neg_kegg <- enrichKEGG(
+     gene          = ratio_neg.2$UniProtKB.Gene.Name.ID,
+     organism      = 'mmu',  # 'mmu' is the code for Mus musculus (mouse)
+     keyType       = "uniprot",
+     pvalueCutoff  = 0.05,
+     qvalueCutoff  = 0.05,
+     pAdjustMethod = "bonferroni"
+ )
+##keytype: one of "kegg", 'ncbi-geneid', 'ncib-proteinid' and 'uniprot'
+kegg <- as.data.frame(ratio_neg_kegg)
+kegg$group <- "KEGG"
+nrow(ratio_neg_kegg)
+
+rat_n <- bind_rows(gomf, gobp, gocc)
+#write results for supp data
+write.table(rat_n, "~/Documents/PhD/Placement/Supp_data/ORA/rat_neg.txt", quote = FALSE, 
+            row.names = FALSE, col.names = TRUE, sep = "\t")
+
+ggplot(rat_n, aes(x = GeneRatio, y = Description, color = p.adjust, size = Count)) +
+  geom_point() +
+  scale_color_continuous() +  # For continuous color scale
+  labs(x = "GeneRatio", y = "Description", color = "p.adjust", size = "Count", title = "ORA: Malignancy/neoplasia ratio (negative correlations)") +
+  theme_bw() +
+  facet_grid(group ~ ., scales = "free_y", space = "free_y",
+             labeller = label_wrap_gen(width=10)) +
+  scale_x_continuous()
+```
+
+```{r}
+
+# combine positive and negative results
+rat_p$correlation <- "positive"
+rat_n$correlation <- "negative"
+
+rat <- rbind(rat_n, rat_p)
+
+write.table(rat, "ORAresults_ratio.txt", quote=FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+```
