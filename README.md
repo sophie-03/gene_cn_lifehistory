@@ -11,8 +11,8 @@ This repository contains the scripts for analysis carried out in the paper "The 
 3. PGLS (individual genes)
 4. Aggregate PGLS (gene sets)
 5. Randomisation test
-9. GSEA
-10. ORA
+6. GSEA
+7. ORA
 
 ### 1. Data Collection
 This study uses 105 species, of these 105 species, 54 have available proteomes. These proteomes are downloaded from NCBI using [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download), in script ```download_proteome.sh```.
@@ -42,7 +42,7 @@ Randomisation test: given a set of interest, produce 1000 replicates of the set 
 ### 6. GSEA
 Input: results from PGLS testing for association between individual copy number and life history traits. Genes are seperated into two groups depending on their association with the trait is positive or negative, and are ranked by p-value. 
 
-GSEA is run locally using the desktop application.
+GSEA was run locally using the desktop application.
 
 Parameters:
 -**Gene sets database:** set to the relevant mouse gene set database (e.g. mh, m2cp or m5)
@@ -55,5 +55,5 @@ Parameters:
 -**Min size:** 5
 
 ### 7. ORA
-
+ORA is carried out using the R package [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html), in script ```ORA.qmd```.
 
