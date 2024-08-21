@@ -1,0 +1,120 @@
+---
+title: "Individual gene pgls"
+format: html
+editor: visual
+---
+
+## Set up
+
+```{r}
+
+library(dplyr)
+library(ape)
+library(tidytree)
+library(car)
+library(lmtest)
+library(readxl)
+library(phylolm)
+
+setwd("~/OneDrive/Placement/Research")
+```
+
+```{r}
+
+#mouse_ortho file created in proteome_orthofinder
+mouse_ortho <- read.table("mouse_gene.orthogroup_data.tsv", header = TRUE, fill = TRUE)
+
+#get list of orthogroups with a copy number of > 0 for >50% species
+# make all columns (except species column) numeric
+subset_ortho[, -1] <- lapply(subset_ortho[, -1], as.numeric)                               
+# count how many species in each orthogroup are 0
+zero_counts <- colSums(subset_ortho[, -1] == 0)
+# Find orthogroups where the number of zeros is less than 50% of the total species
+selected_orthogroups <- names(zero_counts[zero_counts < 0.5 * nrow(subset_ortho)]) 
+# subset all orthogroups for groups with mouse genes
+subset_mouse_ortho <- mouse_ortho[complete.cases(mouse_ortho$proteinID), ]
+# how many of the filtered orthogroups have a mouse gene
+length(setdiff(unique(subset_mouse_ortho$Orthogroup), selected_orthogroups))
+```
+
+## Results
+
+### Longevity
+
+```{r}
+
+##longevity
+l <- read.table("pgls_results/pgls_indv_longevity.txt", header = TRUE, fill = TRUE)
+#filter for orthogroups with >50% species with a copy number >0
+filtered_l <- l[l$OG %in% selected_orthogroups, ]
+write.table(filtered_l, "pgls_results/indv_50%_nonzero/pgls_indv_longevity_filtered.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
+
+adjusted_p_values <- p.adjust(filtered_l$p_value, method = "BH")
+filtered_l$adjusted_p_value <- adjusted_p_values
+sig_l <- filtered_l[filtered_l$adjusted_p_value < 0.05, ]
+sig_l <- left_join(sig_l, mouse_ortho, by = c("OG" = "Orthogroup"))
+```
+
+### Body size
+
+```{r}
+
+bs <- read.table("pgls_results/pgls_indv_bodysize.txt", header = TRUE, fill = TRUE)
+#filter for orthogroups with >50% species with a copy number >0
+filtered_bs <- bs[bs$OG %in% selected_orthogroups, ]
+write.table(filtered_bs, "pgls_results/indv_50%_nonzero/pgls_indv_bodysize_filtered.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
+
+adjusted_p_values <- p.adjust(filtered_bs$p_value, method = "BH")
+filtered_bs$adjusted_p_value <- adjusted_p_values
+sig_bs <- filtered_bs[filtered_bs$adjusted_p_value < 0.05, ]
+sig_bs <- left_join(sig_bs, mouse_ortho, by = c("OG" = "Orthogroup"))
+```
+
+### Cancer phenotypes
+
+### Neoplasia
+
+```{r}
+
+n <- read.table("pgls_results/indv_50%_nonzero/pgls_indv_neoplasia.txt", header = TRUE, fill = TRUE)
+
+
+adjusted_p_values <- p.adjust(n$p_value, method = "BH")
+n$adjusted_p_value <- adjusted_p_values
+sig_n <- n[n$adjusted_p_value < 0.05, ]
+```
+
+#### Malignancy
+
+```{r}
+
+m <- read.table("pgls_results/pgls_indv_malignancy.txt", header = TRUE, fill = TRUE)
+#filter for orthogroups with >50% species with a copy number >0
+filtered_m <- m[m$OG %in% selected_orthogroups, ]
+write.table(filtered_m, "pgls_results/indv_50%_nonzero/pgls_indv_malignancy_filtered.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
+
+adjusted_p_values <- p.adjust(filtered_m$p_value, method = "BH")
+filtered_m$adjusted_p_value <- adjusted_p_values
+sig_m <- filtered_m[filtered_m$adjusted_p_value < 0.05, ]
+sig_m <- left_join(sig_m, mouse_ortho, by = c("OG" = "Orthogroup"))
+```
+
+#### Ratio
+
+```{r}
+r <- read.table("pgls_results/pgls_indv_ratio.txt", header = TRUE, fill = TRUE)
+
+adjusted_p_values <- p.adjust(r$p_value, method = "BH")
+r$adjusted_p_value <- adjusted_p_values
+r <- left_join(r, mouse_ortho, by = c("OG" = "Orthogroup"))
+#filter for orthogroups with >50% species with a copy number >0
+filtered_r <- r[r$OG %in% selected_orthogroups, ]
+sig_r <- filtered_r[filtered_r$adjusted_p_value < 0.05, ]
+sig_r <- left_join(sig_r, mouse_ortho, by = c("OG" = "Orthogroup"))
+
+#write.table(filtered_r, "pgls_results/indv_50%_nonzero/pgls_indv_ratio_filtered.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
+
+length(unique(sig_r$OG))
+length(unique(sig_r$gene))
+
+```
