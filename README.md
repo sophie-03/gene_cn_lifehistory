@@ -9,15 +9,8 @@ This repository contains the scripts for analysis carried out in the paper "The 
 1. Data Collection
 2. Identification of orthogroups
 3. PGLS (individual genes)
-   
-1. Creation of proteomes
-2. BUSCO
-3. Orthofinder
-4. Labelling orthogroups with mouse genes
-5. PGLS (individual genes)
-6. Aggregate PGLS (gene sets)
-7. Reconstructing TGFB
-8. Simulation
+4. Aggregate PGLS (gene sets)
+5. Randomisation test
 9. GSEA
 10. ORA
 
@@ -42,3 +35,6 @@ PGLS to test for association between gene copy number and life history traits. S
 
 ### 4. Aggregate PGLS (gene sets)
 PGLS to test for association between the aggregate copy number of genes within gene sets and life history traits. Scripts in ```pgls_sets``` folder.
+
+### 5. Randomisation test
+Randomisation test: given a set of interest, produce 1000 replicates of the set by randomly selecting genes with a similar variance to those found within the original set. Carry out PGLS on the replicated sets to compare test statistics to original results, in script ```pgls_sets_simulation.R```.
