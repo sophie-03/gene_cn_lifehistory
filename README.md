@@ -38,3 +38,22 @@ PGLS to test for association between the aggregate copy number of genes within g
 
 ### 5. Randomisation test
 Randomisation test: given a set of interest, produce 1000 replicates of the set by randomly selecting genes with a similar variance to those found within the original set. Carry out PGLS on the replicated sets to compare test statistics to original results, in script ```pgls_sets_simulation.R```.
+
+### 6. GSEA
+Input: results from PGLS testing for association between individual copy number and life history traits. Genes are seperated into two groups depending on their association with the trait is positive or negative, and are ranked by p-value. 
+
+GSEA is run locally using the desktop application.
+
+Parameters:
+-**Gene sets database:** set to the relevant mouse gene set database (e.g. mh, m2cp or m5)
+-**Number of permutations:** 1000 (default)
+-**Ranked List:** ranked gene list from pgls p-values
+-**Collapse/Remap to gene symbols:** No_Collapse 
+-**Chip platform:** NA
+-**Enrichment statistic:** Classic
+-**Max size:** 500 (default)
+-**Min size:** 5
+
+### 7. ORA
+
+
