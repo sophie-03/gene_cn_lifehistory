@@ -44,15 +44,15 @@ Input: results from PGLS testing for association between individual copy number 
 
 GSEA was run locally using the desktop application.
 
-Parameters:
--**Gene sets database:** set to the relevant mouse gene set database (e.g. mh, m2cp or m5)
--**Number of permutations:** 1000 (default)
--**Ranked List:** ranked gene list from pgls p-values
--**Collapse/Remap to gene symbols:** No_Collapse 
--**Chip platform:** NA
--**Enrichment statistic:** Classic
--**Max size:** 500 (default)
--**Min size:** 5
+Parameters:  
+- **Gene sets database:** set to the relevant mouse gene set database (e.g. mh, m2cp or m5)
+- **Number of permutations:** 1000 (default)
+- **Ranked List:** ranked gene list from pgls p-values
+- **Collapse/Remap to gene symbols:** No_Collapse 
+- **Chip platform:** NA
+- **Enrichment statistic:** Classic
+- **Max size:** 500 (default)
+- **Min size:** 5
 
 ### 7. ORA
 ORA is carried out using the R package [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html), in script ```ORA.qmd```.
