@@ -8,6 +8,7 @@ This repository contains the scripts for analysis carried out in the paper "The 
 
 1. Data Collection
 2. Identification of orthogroups
+3. PGLS (individual genes)
    
 1. Creation of proteomes
 2. BUSCO
@@ -34,4 +35,7 @@ Gene orthogroups were inferred using [Orthofinder](https://github.com/davidemms/
 
 Species with low BUSCO scores were removed from analysis in ```orthofinder_remove_species.sh```.
 
-Identification of which genes corresponded to each orthogroup was done using house mouse (Mus musculus) gene annotations, in script ```mouse_orthogroup_genes.sh```.
+Identification of which genes corresponded to each orthogroup was done using house mouse (*Mus musculus*) gene annotations, in script ```mouse_orthogroup_genes.sh```.
+
+### 3. PGLS (individual genes)
+PGLS to test for association between gene copy number and life history traits. Scripts in ```pgls_indv``` folder.
