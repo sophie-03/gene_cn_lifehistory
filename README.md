@@ -22,7 +22,7 @@ This study uses 105 species, of these 105 species, 54 have available proteomes. 
 
 For the remaining species, proteomes were created from annotations using [gfftk](https://github.com/nextgenusfs/gfftk/tree/main) (v23.11.2), in script ```gfftk_proteome.sh```.
 
-Keep only the longest transcript for each protein, using the [Orthofinder](https://github.com/davidemms/OrthoFinder) script ```primary_transcript.py```.
+Keep only the longest transcript for each protein, using the [Orthofinder](https://github.com/davidemms/OrthoFinder) script [primary_transcript.py](https://github.com/davidemms/OrthoFinder/blob/master/tools/primary_transcript.py).
 
 ### 2. BUSCO
 BUSCO is run to assess the quality of proteomes, in script ```busco_proteome.sh```.
