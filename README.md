@@ -33,3 +33,5 @@ BUSCO is run to assess the quality of proteomes, in script ```busco_proteome.sh`
 Gene orthogroups were inferred using [Orthofinder](https://github.com/davidemms/OrthoFinder) (v2.5.5)​, to estimate the gene copy number for all protein coding genes, in script ```orthofinder.sh```.
 
 Species with low BUSCO scores were removed from analysis in ```orthofinder_remove_species.sh```.
+
+Identification of which genes corresponded to each orthogroup was done using house mouse (Mus musculus) gene annotations, in script ```mouse_orthogroup_genes.sh```.
