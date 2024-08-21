@@ -26,3 +26,6 @@ Keep only the longest transcript for each protein, using the [Orthofinder](https
 
 ### 2. BUSCO
 BUSCO is run to assess the quality of proteomes, in script ```busco_proteome.sh```.
+
+### 3. Identification of Orthogroups
+Gene orthogroups were inferred using [Orthofinder](https://github.com/davidemms/OrthoFinder) (v2.5.5)​, to estimate the gene copy number for all protein coding genes.
