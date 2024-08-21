@@ -21,3 +21,6 @@ This repository contains the scripts for analysis carried out in the paper "The 
 This study uses 105 species, of these 105 species, 54 have available proteomes. These proteomes are downloaded from NCBI using [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download), in script ```download_proteome.sh```.
 
 For the remaining species, proteomes were created from annotations using [gfftk](https://github.com/nextgenusfs/gfftk/tree/main) (v23.11.2), in script ```gfftk_proteome.sh```.
+
+### 2. BUSCO
+BUSCO is run to assess the quality of proteomes, in script ```busco_proteome.sh```.
