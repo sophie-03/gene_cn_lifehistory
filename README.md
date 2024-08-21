@@ -14,6 +14,8 @@ This repository contains the scripts for analysis carried out in the paper "The 
 6. GSEA
 7. ORA
 
+**Conda env:** environment.yml
+
 ### 1. Data Collection
 This study uses 105 species, of these 105 species, 54 have available proteomes. These proteomes are downloaded from NCBI using [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download), in script ```download_proteome.sh```.
 
@@ -56,4 +58,7 @@ Parameters:
 
 ### 7. ORA
 ORA is carried out using the R package [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html), in script ```ORA.qmd```.
+
+## Contact information
+If you have any questions about this code please reach out to me: s.matthews5@universityofgalway.ie
 
