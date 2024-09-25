@@ -2,7 +2,7 @@
 
 ## Repository information
 
-This repository contains the scripts for analysis carried out in the paper "The role of gene copy number in adaptation to life history traits across mammals".
+This repository contains the scripts for analysis carried out in the paper "Variable gene copy number in cancer-related pathways is associated with cancer prevalence across mammals".
 
 ## Workflow
 
