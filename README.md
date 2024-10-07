@@ -1,4 +1,4 @@
-# The role of gene copy number in adaptation to life history traits across mammals 
+# Variable gene copy number in cancer-related pathways is associated with cancer prevalence across mammals
 
 ## Repository information
 
